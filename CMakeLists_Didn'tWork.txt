@@ -1,0 +1,115 @@
+# CMakeList.txt : CMake project for Multiview, include source and define
+# project specific logic here.
+# Minimum cmake version
+cmake_minimum_required (VERSION 3.20 FATAL_ERROR)
+
+project ("mv_tractus")
+
+# set(CMAKE_CXX_STANDARD 11)
+# set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+message("CMake Project Source Dir: ${PROJECT_SOURCE_DIR}")
+message("CMake Project Binary Dir: ${PROJECT_BINARY_DIR}")
+message("CMake Source Dir: ${CMAKE_SOURCE_DIR}")
+message("CMake Binary Dir: ${CMAKE_BINARY_DIR}")
+message("CMake Current Source Dir: ${CMAKE_CURRENT_SOURCE_DIR}")
+message("CMake Current Binary Dir: ${CMAKE_CURRENT_BINARY_DIR}")
+
+# Find installed FFmpeg
+set(ENV{PKG_CONFIG_PATH} "${CMAKE_SOURCE_DIR}/lib/ffmpeg-4.4.5/ffmpeg_build/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}")
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(AVCODEC REQUIRED libavcodec)
+pkg_check_modules(AVFORMAT REQUIRED libavformat)
+pkg_check_modules(AVUTIL REQUIRED libavutil)
+pkg_check_modules(AVDEVICE REQUIRED libavdevice)
+pkg_check_modules(SWRESAMPLE REQUIRED libswresample)
+pkg_check_modules(SWSCALE REQUIRED libswscale)
+
+message("========== FFmpeg pkg-config information ==========")
+message("AVCODEC_INCLUDE_DIRS:   ${AVCODEC_INCLUDE_DIRS}")
+message("AVCODEC_LIBRARY_DIRS:   ${AVCODEC_LIBRARY_DIRS}")
+message("AVCODEC_LIBRARIES:      ${AVCODEC_LIBRARIES}")
+message("AVCODEC_VERSION:        ${AVCODEC_VERSION}")
+
+message("AVFORMAT_INCLUDE_DIRS:  ${AVFORMAT_INCLUDE_DIRS}")
+message("AVFORMAT_LIBRARY_DIRS:  ${AVFORMAT_LIBRARY_DIRS}")
+message("AVFORMAT_LIBRARIES:     ${AVFORMAT_LIBRARIES}")
+message("AVFORMAT_VERSION:       ${AVFORMAT_VERSION}")
+
+message("AVUTIL_INCLUDE_DIRS:    ${AVUTIL_INCLUDE_DIRS}")
+message("AVUTIL_LIBRARY_DIRS:    ${AVUTIL_LIBRARY_DIRS}")
+message("AVUTIL_LIBRARIES:       ${AVUTIL_LIBRARIES}")
+message("AVUTIL_VERSION:         ${AVUTIL_VERSION}")
+
+message("AVDEVICE_INCLUDE_DIRS:  ${AVDEVICE_INCLUDE_DIRS}")
+message("AVDEVICE_LIBRARY_DIRS:  ${AVDEVICE_LIBRARY_DIRS}")
+message("AVDEVICE_LIBRARIES:     ${AVDEVICE_LIBRARIES}")
+
+message("SWRESAMPLE_INCLUDE_DIRS: ${SWRESAMPLE_INCLUDE_DIRS}")
+message("SWRESAMPLE_LIBRARY_DIRS: ${SWRESAMPLE_LIBRARY_DIRS}")
+message("SWRESAMPLE_LIBRARIES:    ${SWRESAMPLE_LIBRARIES}")
+
+message("SWSCALE_INCLUDE_DIRS:   ${SWSCALE_INCLUDE_DIRS}")
+message("SWSCALE_LIBRARY_DIRS:   ${SWSCALE_LIBRARY_DIRS}")
+message("SWSCALE_LIBRARIES:      ${SWSCALE_LIBRARIES}")
+message("SWSCALE_VERSION:        ${SWSCALE_VERSION}")
+
+# Find OpenMP package
+find_package(OpenMP)
+
+if(NOT OpenMP_CXX_FOUND)
+	message(FATAL_ERROR "Can't find OpenMP")
+endif()
+
+message("========== OpenMP information ==========")
+message("OpenMP_CXX_FOUND: ${OpenMP_CXX_FOUND}")
+message("OpenMP_CXX_VERSION: ${OpenMP_CXX_VERSION}")
+message("OpenMP_CXX_LIBRARIES: ${OpenMP_CXX_LIBRARIES}")
+
+find_package(Boost REQUIRED COMPONENTS program_options filesystem date_time chrono serialization system) # Find boost at the end of all find_package
+
+message("========== Boost information ==========")
+message("Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
+message("Boost_LIBRARIES: ${Boost_LIBRARIES}")
+
+# Threads
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
+# List of libraries to link
+LIST(APPEND THREAD_LIBS Threads::Threads OpenMP::OpenMP_CXX rt)
+
+# Include directories
+include_directories(
+					${Boost_INCLUDE_DIRS} # Boost libraries
+                    ${AVCODEC_INCLUDE_DIRS}
+					${AVFORMAT_INCLUDE_DIRS}
+                    ${AVUTIL_INCLUDE_DIRS}
+                    ${AVDEVICE_INCLUDE_DIRS}
+                    ${SWRESAMPLE_INCLUDE_DIRS}
+					${SWSCALE_INCLUDE_DIRS}
+					)
+
+# ################################# TESTING #################################
+
+add_executable(extract_mvs
+				"extract_mvs.c"
+			)
+target_link_libraries(extract_mvs ${AVCODEC_LIBRARIES} ${AVFORMAT_LIBRARIES} ${AVUTIL_LIBRARIES} ${AVDEVICE_LIBRARIES} ${SWRESAMPLE_LIBRARIES} ${SWSCALE_LIBRARIES} ${THREAD_LIBS} ${Boost_LIBRARIES})
+
+add_executable(extract_mvs_cpp
+				"extract_mvs.cpp"
+			)
+target_link_libraries(extract_mvs_cpp ${AVCODEC_LIBRARIES} ${AVFORMAT_LIBRARIES} ${AVUTIL_LIBRARIES} ${AVDEVICE_LIBRARIES} ${SWRESAMPLE_LIBRARIES} ${SWSCALE_LIBRARIES} ${THREAD_LIBS} ${Boost_LIBRARIES})
+
+add_executable(extract_mvs_test 
+				"extract_mvs_test.cpp"
+			)
+target_link_libraries(extract_mvs_test ${AVCODEC_LIBRARIES} ${AVFORMAT_LIBRARIES} ${AVUTIL_LIBRARIES} ${AVDEVICE_LIBRARIES} ${SWRESAMPLE_LIBRARIES} ${SWSCALE_LIBRARIES} ${THREAD_LIBS} ${Boost_LIBRARIES})
+
+# add_executable(extract_mvs_with_frames
+#                 "extract_mvs_with_frames.c"
+#             )
+
+# target_link_libraries(extract_mvs_with_frames ${AVCODEC_LIBRARIES} ${AVFORMAT_LIBRARIES} ${AVUTIL_LIBRARIES} ${AVDEVICE_LIBRARIES} ${SWRESAMPLE_LIBRARIES} ${SWSCALE_LIBRARIES} ${THREAD_LIBS} ${Boost_LIBRARIES})

@@ -25,8 +25,17 @@
 
 */
 
-#include "include/libavutil/motion_vector.h"
-#include "include/libavformat/avformat.h"
+// #include "include/libavutil/motion_vector.h"
+// #include "include/libavformat/avformat.h"
+
+// FFmpeg headers
+#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
+#include <libavutil/motion_vector.h>
+#include <libavutil/frame.h>
+#include <libavutil/imgutils.h>
+#include <libswscale/swscale.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -42,7 +51,8 @@ static AVFrame *frame = NULL;
 static int video_frame_count = 0;
 static char **output_name = "./output/mv";
 
-static int print_motion_vectors_data(AVMotionVector *mv, int video_frame_count){
+static int print_motion_vectors_data(AVMotionVector *mv, int video_frame_count)
+{
   printf("| #:%d | p/f:%2d | %2d x %2d | src:(%4d,%4d) | dst:(%4d,%4d) | dx:%4d | dy:%4d | motion_x:%4d | motion_y:%4d | motion_scale:%4d | 0x%"PRIx64" |\n",
       video_frame_count,
       mv->source,
@@ -62,7 +72,8 @@ static int print_motion_vectors_data(AVMotionVector *mv, int video_frame_count){
   return 0;
 }
 
-static int print_frame_data(AVFrame * frame){
+static int print_frame_data(AVFrame * frame)
+{
   printf("%s\n", frame->data[0]);
   return 0;
 }
@@ -72,24 +83,28 @@ static int decode_packet(const AVPacket *pkt)
     int ret = avcodec_send_packet(video_dec_ctx, pkt);
     char szFileName[255] = {0};
     FILE *file=NULL;
-    if (ret < 0) {
+    if (ret < 0) 
+    {
         fprintf(stderr, "Error while sending a packet to the decoder: %s\n", av_err2str(ret));
         return ret;
     }
 
-    while (ret >= 0)  {
+    while (ret >= 0)  
+    {
         ret = avcodec_receive_frame(video_dec_ctx, frame);
-        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) 
             break;
-        } else if (ret < 0) {
+        else if (ret < 0) 
+        {
             fprintf(stderr, "Error while receiving a frame from the decoder: %s\n", av_err2str(ret));
             return ret;
         }
 
-        if (ret >= 0) {
+        if (ret >= 0) 
+        {
             int i;
             AVFrameSideData *sd;
-	    video_frame_count++;
+	        video_frame_count++;
             sprintf(szFileName, "%s/%d.json", output_name, video_frame_count);
             file = fopen(szFileName,"w");
             if (file == NULL)
@@ -99,61 +114,72 @@ static int decode_packet(const AVPacket *pkt)
             }
             fprintf(file, "[\n");
             sd = av_frame_get_side_data(frame, AV_FRAME_DATA_MOTION_VECTORS);
-            if (sd) {
+            if (sd) 
+            {
                 const AVMotionVector *mvs = (const AVMotionVector *)sd->data;
-                for (i = 0; i < sd->size / sizeof(*mvs); i++) {
+                for (i = 0; i < sd->size / sizeof(*mvs); i++) 
+                {
                     const AVMotionVector *mv = &mvs[i];
                     // print_motion_vectors_data(mv, video_frame_count);
-                    if(i==(sd->size / sizeof(*mvs))-1){
-                      fprintf(file, "\t{\n");
-                      fprintf(file, "\t\t\"source\" : %d,\n", mv->source);
-                      fprintf(file, "\t\t\"width\" : %d,\n", mv->w);
-                      fprintf(file, "\t\t\"height\" : %d,\n", mv->h);
-                      if(mv->source<0){
-                        fprintf(file, "\t\t\"src_x\" : %d,\n", ((mv->src_x)/abs(mv->source)));
-                        fprintf(file, "\t\t\"src_y\" : %d,\n", (mv->src_y)/abs(mv->source));
-                        fprintf(file, "\t\t\"dst_x\" : %d,\n", (mv->dst_x/abs(mv->source)));
-                        fprintf(file, "\t\t\"dst_y\" : %d,\n", (mv->dst_y/abs(mv->source)));
-                        fprintf(file, "\t\t\"dx\" : %d,\n", ((mv->dst_x - mv->src_x)/abs(mv->source)));
-                        fprintf(file, "\t\t\"dy\" : %d\n", ((mv->dst_y - mv->src_y)/abs(mv->source)));
-                      }else{
-                        fprintf(file, "\t\t\"src_x\" : %d,\n", (mv->dst_x/abs(mv->source)));
-                        fprintf(file, "\t\t\"src_y\" : %d,\n", (mv->dst_y/abs(mv->source)));
-                        fprintf(file, "\t\t\"dst_x\" : %d,\n", (mv->src_x/abs(mv->source)));
-                        fprintf(file, "\t\t\"dst_y\" : %d,\n", (mv->src_y/abs(mv->source)));
-                        fprintf(file, "\t\t\"dx\" : %d,\n", ((mv->src_x - mv->dst_x)/abs(mv->source)));
-                        fprintf(file, "\t\t\"dy\" : %d\n", ((mv->src_y - mv->dst_y)/abs(mv->source)));
-                      }
-                      fprintf(file, "\t}\n");
-                    }else{
-                      fprintf(file, "\t{\n");
-                      fprintf(file, "\t\t\"source\" : %d,\n", mv->source);
-                      fprintf(file, "\t\t\"width\" : %d,\n", mv->w);
-                      fprintf(file, "\t\t\"height\" : %d,\n", mv->h);
-                      if(mv->source<0){
-                        fprintf(file, "\t\t\"src_x\" : %d,\n", (mv->src_x/abs(mv->source)));
-                        fprintf(file, "\t\t\"src_y\" : %d,\n", (mv->src_y/abs(mv->source)));
-                        fprintf(file, "\t\t\"dst_x\" : %d,\n", (mv->dst_x/abs(mv->source)));
-                        fprintf(file, "\t\t\"dst_y\" : %d,\n", (mv->dst_y/abs(mv->source)));
-                        fprintf(file, "\t\t\"dx\" : %d,\n", ((mv->dst_x - mv->src_x)/abs(mv->source)));
-                        fprintf(file, "\t\t\"dy\" : %d\n", ((mv->dst_y - mv->src_y)/abs(mv->source)));
-                      }else{
-                        fprintf(file, "\t\t\"src_x\" : %d,\n", (mv->dst_x/abs(mv->source)));
-                        fprintf(file, "\t\t\"src_y\" : %d,\n", (mv->dst_y/abs(mv->source)));
-                        fprintf(file, "\t\t\"dst_x\" : %d,\n", (mv->src_x/abs(mv->source)));
-                        fprintf(file, "\t\t\"dst_y\" : %d,\n", (mv->src_y/abs(mv->source)));
-                        fprintf(file, "\t\t\"dx\" : %d,\n", ((mv->src_x - mv->dst_x)/abs(mv->source)));
-                        fprintf(file, "\t\t\"dy\" : %d\n", ((mv->src_y - mv->dst_y)/abs(mv->source)));
-                      }
-                      fprintf(file, "\t},\n");
+                    if(i==(sd->size / sizeof(*mvs))-1)
+                    {
+                        fprintf(file, "\t{\n");
+                        fprintf(file, "\t\t\"source\" : %d,\n", mv->source);
+                        fprintf(file, "\t\t\"width\" : %d,\n", mv->w);
+                        fprintf(file, "\t\t\"height\" : %d,\n", mv->h);
+                        if(mv->source<0)
+                        {
+                            fprintf(file, "\t\t\"src_x\" : %d,\n", ((mv->src_x)/abs(mv->source)));
+                            fprintf(file, "\t\t\"src_y\" : %d,\n", (mv->src_y)/abs(mv->source));
+                            fprintf(file, "\t\t\"dst_x\" : %d,\n", (mv->dst_x/abs(mv->source)));
+                            fprintf(file, "\t\t\"dst_y\" : %d,\n", (mv->dst_y/abs(mv->source)));
+                            fprintf(file, "\t\t\"dx\" : %d,\n", ((mv->dst_x - mv->src_x)/abs(mv->source)));
+                            fprintf(file, "\t\t\"dy\" : %d\n", ((mv->dst_y - mv->src_y)/abs(mv->source)));
+                        }
+                        else
+                        {
+                            fprintf(file, "\t\t\"src_x\" : %d,\n", (mv->dst_x/abs(mv->source)));
+                            fprintf(file, "\t\t\"src_y\" : %d,\n", (mv->dst_y/abs(mv->source)));
+                            fprintf(file, "\t\t\"dst_x\" : %d,\n", (mv->src_x/abs(mv->source)));
+                            fprintf(file, "\t\t\"dst_y\" : %d,\n", (mv->src_y/abs(mv->source)));
+                            fprintf(file, "\t\t\"dx\" : %d,\n", ((mv->src_x - mv->dst_x)/abs(mv->source)));
+                            fprintf(file, "\t\t\"dy\" : %d\n", ((mv->src_y - mv->dst_y)/abs(mv->source)));
+                        }
+                        fprintf(file, "\t}\n");
+                    }
+                    else
+                    {
+                        fprintf(file, "\t{\n");
+                        fprintf(file, "\t\t\"source\" : %d,\n", mv->source);
+                        fprintf(file, "\t\t\"width\" : %d,\n", mv->w);
+                        fprintf(file, "\t\t\"height\" : %d,\n", mv->h);
+                        if(mv->source<0)
+                        {
+                            fprintf(file, "\t\t\"src_x\" : %d,\n", (mv->src_x/abs(mv->source)));
+                            fprintf(file, "\t\t\"src_y\" : %d,\n", (mv->src_y/abs(mv->source)));
+                            fprintf(file, "\t\t\"dst_x\" : %d,\n", (mv->dst_x/abs(mv->source)));
+                            fprintf(file, "\t\t\"dst_y\" : %d,\n", (mv->dst_y/abs(mv->source)));
+                            fprintf(file, "\t\t\"dx\" : %d,\n", ((mv->dst_x - mv->src_x)/abs(mv->source)));
+                            fprintf(file, "\t\t\"dy\" : %d\n", ((mv->dst_y - mv->src_y)/abs(mv->source)));
+                        }
+                        else
+                        {
+                            fprintf(file, "\t\t\"src_x\" : %d,\n", (mv->dst_x/abs(mv->source)));
+                            fprintf(file, "\t\t\"src_y\" : %d,\n", (mv->dst_y/abs(mv->source)));
+                            fprintf(file, "\t\t\"dst_x\" : %d,\n", (mv->src_x/abs(mv->source)));
+                            fprintf(file, "\t\t\"dst_y\" : %d,\n", (mv->src_y/abs(mv->source)));
+                            fprintf(file, "\t\t\"dx\" : %d,\n", ((mv->src_x - mv->dst_x)/abs(mv->source)));
+                            fprintf(file, "\t\t\"dy\" : %d\n", ((mv->src_y - mv->dst_y)/abs(mv->source)));
+                        }
+                        fprintf(file, "\t},\n");
                     }
                 }
                 // printf("%s\n", strcat( "./output/", strcat(video_frame_count, ".json")));
             }
             fprintf(file, "]\n");
             fclose(file);
-	    printf("\rTotal Processed Frames:%d", video_frame_count);
-	    fflush(stdout);
+            printf("\rTotal Processed Frames:%d", video_frame_count);
+            fflush(stdout);
             //Print frame data
             // print_frame_data(frame);
             av_frame_unref(frame);
@@ -171,33 +197,45 @@ static int open_codec_context(AVFormatContext *fmt_ctx, enum AVMediaType type)
     AVDictionary *opts = NULL;
 
     ret = av_find_best_stream(fmt_ctx, type, -1, -1, &dec, 0);
-    if (ret < 0) {
+    if (ret < 0) 
+    {
         fprintf(stderr, "Could not find %s stream in input file '%s'\n",
                 av_get_media_type_string(type), src_filename);
         return ret;
-    } else {
+    } 
+    else 
+    {
+        printf("Found %s stream in input file '%s'\n",
+            av_get_media_type_string(type), src_filename);
+        
         int stream_idx = ret;
         st = fmt_ctx->streams[stream_idx];
 
         dec_ctx = avcodec_alloc_context3(dec);
-        if (!dec_ctx) {
+        if (!dec_ctx) 
+        {
             fprintf(stderr, "Failed to allocate codec\n");
             return AVERROR(EINVAL);
         }
+        printf("Allocated codec context\n");
 
         ret = avcodec_parameters_to_context(dec_ctx, st->codecpar);
-        if (ret < 0) {
+        if (ret < 0) 
+        {
             fprintf(stderr, "Failed to copy codec parameters to codec context\n");
             return ret;
         }
+        printf("Copied codec parameters to codec context\n");
 
         /* Init the video decoder */
         av_dict_set(&opts, "flags2", "+export_mvs", 0);
-        if ((ret = avcodec_open2(dec_ctx, dec, &opts)) < 0) {
+        if ((ret = avcodec_open2(dec_ctx, dec, &opts)) < 0) 
+        {
             fprintf(stderr, "Failed to open %s codec\n",
                     av_get_media_type_string(type));
             return ret;
         }
+        printf("Opened codec\n");
 
         video_stream_idx = stream_idx;
         video_stream = fmt_ctx->streams[video_stream_idx];
@@ -207,7 +245,8 @@ static int open_codec_context(AVFormatContext *fmt_ctx, enum AVMediaType type)
     return 0;
 }
 
-void extract_motion_vectors(char *videopath){
+void extract_motion_vectors(char *videopath)
+{
     int ret = 0;
     AVPacket pkt = { 0 };
     struct stat sb;
@@ -224,34 +263,47 @@ void extract_motion_vectors(char *videopath){
         exit(1);
     }*/
 
+    // Register all formats and codecs (depending on FFmpeg version, might be optional)
+    av_register_all();
+
     src_filename = videopath;
 
-    if (avformat_open_input(&fmt_ctx, src_filename, NULL, NULL) < 0) {
+    if (avformat_open_input(&fmt_ctx, src_filename, NULL, NULL) < 0) 
+    {
         fprintf(stderr, "Could not open source file %s\n", src_filename);
         exit(1);
     }
 
-    if (avformat_find_stream_info(fmt_ctx, NULL) < 0) {
+    printf("Opened input file\n");
+
+    if (avformat_find_stream_info(fmt_ctx, NULL) < 0) 
+    {
         fprintf(stderr, "Could not find stream information\n");
         exit(1);
     }
+
+    printf("Found stream information\n");
 
     open_codec_context(fmt_ctx, AVMEDIA_TYPE_VIDEO);
 
     av_dump_format(fmt_ctx, 0, src_filename, 0);
 
-    if (!video_stream) {
+    if (!video_stream) 
+    {
         fprintf(stderr, "Could not find video stream in the input, aborting\n");
         ret = 1;
         goto end;
     }
+    printf("Found video stream\n");
 
     frame = av_frame_alloc();
-    if (!frame) {
+    if (!frame) 
+    {
         fprintf(stderr, "Could not allocate frame\n");
         ret = AVERROR(ENOMEM);
         goto end;
     }
+    printf("Allocated frame\n");
     printf("\n");
     printf("**************************************************************************************\n");
     printf("*       Tool : MV-Tractus                                                            *\n");
@@ -286,8 +338,10 @@ end:
 
 int main(int argc, char **argv)
 {
-	if(argc>2) {
+	if(argc>2)
 		output_name = argv[2];
-	}
+
+    printf("Input file path: %s\n", argv[1]);
+    printf("Output file path: %s\n", output_name);
 	extract_motion_vectors(argv[1]);
 }
