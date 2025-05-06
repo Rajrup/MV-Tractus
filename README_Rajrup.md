@@ -46,9 +46,15 @@ export LD_LIBRARY_PATH="$FFMPEG_HOME/ffmpeg_install/lib":$LD_LIBRARY_PATH
 ## Build
 
 ```bash
+# Change FFMpeg Home folder in .bashrc to point to ffmpeg-4.4.5 library.
+# Uncomment export FFMPEG_HOME="/main/rajrup/Dropbox/Project/GsplatStream/LivoGstream/src/mv_tractus/lib/ffmpeg-4.4.5"
+# source ~/.bashrc
+# Restart VSCode and build.
+# We are building using g++ 9.4.0
+
 cd LivoGstream/src/mv_tractus
 mkdir build && cd build
-cmake ..
+cmake -D CMAKE_BUILD_TYPE=Release ..
 make -j 32
 ```
 
